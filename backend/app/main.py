@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
-from app.routers import auth, employees, clients, timesheets, approvals, calendars, configurations
+from app.routers import auth, employees, clients, timesheets, approvals, calendars, configurations, drive
 
 Base.metadata.create_all(bind=engine)
 
@@ -27,6 +27,8 @@ app.include_router(timesheets.router)
 app.include_router(approvals.router)
 app.include_router(calendars.router)
 app.include_router(configurations.router)
+app.include_router(drive.router)
+
 
 
 @app.get("/")
