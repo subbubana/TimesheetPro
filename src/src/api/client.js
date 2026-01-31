@@ -68,6 +68,10 @@ export const employeesAPI = {
   getById: (id) => apiClient.get(`/employees/${id}`),
   update: (id, data) => apiClient.put(`/employees/${id}`, data),
   delete: (id) => apiClient.delete(`/employees/${id}`),
+  // Client assignment endpoints
+  addAssignment: (employeeId, data) => apiClient.post(`/employees/${employeeId}/assignments`, data),
+  getAssignments: (employeeId) => apiClient.get(`/employees/${employeeId}/assignments`),
+  removeAssignment: (employeeId, assignmentId) => apiClient.delete(`/employees/${employeeId}/assignments/${assignmentId}`),
 };
 
 export const clientsAPI = {
@@ -76,6 +80,11 @@ export const clientsAPI = {
   getById: (id) => apiClient.get(`/clients/${id}`),
   update: (id, data) => apiClient.put(`/clients/${id}`, data),
   delete: (id) => apiClient.delete(`/clients/${id}`),
+  // Business calendar endpoints
+  createCalendar: (clientId, data) => apiClient.post(`/clients/${clientId}/calendars`, data),
+  getCalendars: (clientId) => apiClient.get(`/clients/${clientId}/calendars`),
+  getCalendarByYear: (clientId, year) => apiClient.get(`/clients/${clientId}/calendars/${year}`),
+  updateCalendar: (clientId, year, data) => apiClient.put(`/clients/${clientId}/calendars/${year}`, data),
 };
 
 export const timesheetsAPI = {
@@ -110,4 +119,17 @@ export const configurationsAPI = {
   getByKey: (key) => apiClient.get(`/configurations/key/${key}`),
   update: (id, data) => apiClient.put(`/configurations/${id}`, data),
   delete: (id) => apiClient.delete(`/configurations/${id}`),
+};
+
+export const notificationsAPI = {
+  send: (data) => apiClient.post('/notifications/send', data),
+  sendBulk: (data) => apiClient.post('/notifications/send-bulk', data),
+  getAll: (params) => apiClient.get('/notifications/', { params }),
+  getById: (id) => apiClient.get(`/notifications/${id}`),
+  markSent: (id) => apiClient.put(`/notifications/${id}/mark-sent`),
+};
+
+export const dashboardAPI = {
+  getData: (params) => apiClient.get('/dashboard/', { params }),
+  getStats: () => apiClient.get('/dashboard/stats'),
 };

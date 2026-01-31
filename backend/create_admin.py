@@ -34,8 +34,7 @@ def create_admin():
             last_name="User",
             hashed_password=get_password_hash("1234"),
             role=UserRole.ADMIN,
-            is_active=True,
-            client_id=None
+            is_active=True
         )
 
         db.add(admin)

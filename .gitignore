@@ -74,3 +74,4 @@ build/
 
 # Misc
 .cache/
+.claude/
