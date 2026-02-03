@@ -38,6 +38,25 @@ class NotificationStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class UploadSource(str, enum.Enum):
+    MANUAL = "manual"
+    EMAIL = "email"
+    DRIVE = "drive"
+
+
+class UploadStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    ANALYZED = "analyzed"
+    FAILED = "failed"
+
+
+class IntegrationType(str, enum.Enum):
+    EMAIL = "email"
+    DRIVE = "drive"
+
+
+
 class Employee(Base):
     __tablename__ = "employees"
 
@@ -244,3 +263,53 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     employee = relationship("Employee")
+
+
+class TimesheetUpload(Base):
+    """Stores uploaded timesheet files from various sources"""
+    __tablename__ = "timesheet_uploads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    file_path = Column(String, nullable=False)  # Local storage path
+    file_name = Column(String, nullable=False)  # Original filename
+    file_format = Column(String, nullable=False)  # pdf, jpg, csv
+    source = Column(SQLEnum(UploadSource, values_callable=lambda x: [e.value for e in x]), nullable=False)
+    status = Column(SQLEnum(UploadStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, default=UploadStatus.PENDING)
+    uploaded_by = Column(Integer, ForeignKey("employees.id"), nullable=True)  # Admin who uploaded (for manual uploads)
+    upload_metadata = Column(Text, nullable=True)  # JSON: email subject, drive file id, etc.
+    error_message = Column(Text, nullable=True)  # Error details if status is FAILED
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    employee = relationship("Employee", foreign_keys=[employee_id])
+    uploader = relationship("Employee", foreign_keys=[uploaded_by])
+
+
+class IntegrationConfig(Base):
+    """Stores email and Drive integration configurations"""
+    __tablename__ = "integration_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(SQLEnum(IntegrationType, values_callable=lambda x: [e.value for e in x]), nullable=False, unique=True)
+    config_data = Column(Text, nullable=False)  # JSON encrypted: IMAP settings, OAuth tokens, etc.
+    is_active = Column(Boolean, default=False)  # Monitoring enabled/disabled
+    last_sync = Column(DateTime, nullable=True)  # Last successful sync timestamp
+    sync_count = Column(Integer, default=0)  # Number of items processed
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ProcessedFile(Base):
+    """Tracks processed email/Drive files to prevent duplicates"""
+    __tablename__ = "processed_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(SQLEnum(UploadSource, values_callable=lambda x: [e.value for e in x]), nullable=False)
+    external_id = Column(String, nullable=False, unique=True)  # Email message ID or Drive file ID
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    upload_id = Column(Integer, ForeignKey("timesheet_uploads.id"), nullable=True)
+    processed_at = Column(DateTime, default=datetime.utcnow)
+
+    employee = relationship("Employee")
+    upload = relationship("TimesheetUpload")

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { employeesAPI, clientsAPI } from '../api/client';
 import { AlertCircle, User, Building2, DollarSign, Clock, X, Check } from 'lucide-react';
 
 const EmployeeOnboarding = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = !!id;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [clients, setClients] = useState([]);
@@ -27,7 +29,47 @@ const EmployeeOnboarding = () => {
   useEffect(() => {
     fetchClients();
     fetchManagers();
-  }, []);
+    if (isEditMode) {
+      fetchEmployeeDetails();
+    }
+  }, [id]);
+
+  const fetchEmployeeDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await employeesAPI.get(id);
+      const emp = response.data;
+
+      setFormData({
+        first_name: emp.first_name,
+        last_name: emp.last_name,
+        email: emp.email,
+        manager_id: emp.manager_id || '',
+        week_start_day: emp.week_start_day,
+        pay_rate: emp.pay_rate || '',
+        overtime_allowed: emp.overtime_allowed,
+        client_ids: emp.client_assignments?.map(a => a.client_id) || [],
+      });
+
+      // Also set selected clients for UI display
+      if (emp.client_assignments) {
+        // We'll update this after clients are fetched, but for now we rely on formData
+      }
+    } catch (error) {
+      console.error('Failed to fetch employee details:', error);
+      setError('Failed to load employee details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update selectedClients when clients list or formData changes
+  useEffect(() => {
+    if (clients.length > 0 && formData.client_ids.length > 0) {
+      const selected = clients.filter(c => formData.client_ids.includes(c.id));
+      setSelectedClients(selected);
+    }
+  }, [clients, formData.client_ids]);
 
   const fetchClients = async () => {
     try {
@@ -104,7 +146,11 @@ const EmployeeOnboarding = () => {
         client_ids: formData.client_ids,
       };
 
-      await employeesAPI.create(employeeData);
+      if (isEditMode) {
+        await employeesAPI.update(id, employeeData);
+      } else {
+        await employeesAPI.create(employeeData);
+      }
       navigate('/employees');
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to onboard employee');
@@ -138,8 +184,8 @@ const EmployeeOnboarding = () => {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Employee Onboarding</h1>
-        <p className="text-gray-600 mt-2">Add a new employee and assign them to clients</p>
+        <h1 className="text-3xl font-bold text-gray-900">{isEditMode ? 'Edit Employee' : 'Employee Onboarding'}</h1>
+        <p className="text-gray-600 mt-2">{isEditMode ? 'Update employee details and assignments' : 'Add a new employee and assign them to clients'}</p>
       </div>
 
       {/* Step Indicator */}
@@ -501,7 +547,7 @@ const EmployeeOnboarding = () => {
               disabled={loading || formData.client_ids.length === 0}
               className="btn btn-primary disabled:opacity-50"
             >
-              {loading ? 'Creating Employee...' : 'Create Employee'}
+              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Employee' : 'Create Employee')}
             </button>
           )}
         </div>

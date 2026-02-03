@@ -1,7 +1,10 @@
 from datetime import datetime, date
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from app.models import SubmissionFrequency, TimesheetStatus, ApprovalStatus, UserRole, NotificationStatus
+from app.models import (
+    SubmissionFrequency, TimesheetStatus, ApprovalStatus, UserRole, 
+    NotificationStatus, UploadSource, UploadStatus, IntegrationType
+)
 
 
 class Token(BaseModel):
@@ -143,6 +146,7 @@ class ClientUpdate(BaseModel):
     drive_folder_path: Optional[str] = None
     default_submission_frequency: Optional[SubmissionFrequency] = None
     is_active: Optional[bool] = None
+    non_working_dates: Optional[List[str]] = None  # Logic to update current year's calendar
 
 
 class ClientResponse(ClientBase):
@@ -150,6 +154,7 @@ class ClientResponse(ClientBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    non_working_dates: List[str] = []  # Virtual field from business calendar
 
     class Config:
         from_attributes = True
@@ -369,6 +374,86 @@ class AuditLogResponse(BaseModel):
     changes: Optional[str] = None
     ip_address: Optional[str] = None
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Timesheet Upload Schemas
+class TimesheetUploadCreate(BaseModel):
+    employee_id: int
+    file_format: str  # pdf, jpg, csv
+    source: UploadSource = UploadSource.MANUAL
+
+
+class TimesheetUploadResponse(BaseModel):
+    id: int
+    employee_id: int
+    file_path: str
+    file_name: str
+    file_format: str
+    source: UploadSource
+    status: UploadStatus
+    uploaded_by: Optional[int] = None
+    upload_metadata: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Integration Config Schemas
+class EmailConfigCreate(BaseModel):
+    imap_server: str
+    imap_port: int = 993
+    email: EmailStr
+    password: str  # Will be encrypted before storage
+
+
+class EmailConfigResponse(BaseModel):
+    id: int
+    type: IntegrationType
+    is_active: bool
+    last_sync: Optional[datetime] = None
+    sync_count: int
+    # config_data is not exposed for security
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DriveConfigCreate(BaseModel):
+    oauth_credentials: str  # JSON string with OAuth tokens
+    folder_id: str
+
+
+class DriveConfigResponse(BaseModel):
+    id: int
+    type: IntegrationType
+    is_active: bool
+    last_sync: Optional[datetime] = None
+    sync_count: int
+    # config_data is not exposed for security
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class IntegrationConfigResponse(BaseModel):
+    """Generic integration config response"""
+    id: int
+    type: IntegrationType
+    is_active: bool
+    last_sync: Optional[datetime] = None
+    sync_count: int
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

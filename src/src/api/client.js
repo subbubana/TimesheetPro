@@ -65,6 +65,8 @@ export const authAPI = {
 export const employeesAPI = {
   create: (data) => apiClient.post('/employees/', data),
   getAll: (params) => apiClient.get('/employees/', { params }),
+  getAll: (params) => apiClient.get('/employees/', { params }),
+  get: (id) => apiClient.get(`/employees/${id}`),
   getById: (id) => apiClient.get(`/employees/${id}`),
   update: (id, data) => apiClient.put(`/employees/${id}`, data),
   delete: (id) => apiClient.delete(`/employees/${id}`),
@@ -77,6 +79,8 @@ export const employeesAPI = {
 export const clientsAPI = {
   create: (data) => apiClient.post('/clients/', data),
   getAll: (params) => apiClient.get('/clients/', { params }),
+  getAll: (params) => apiClient.get('/clients/', { params }),
+  get: (id) => apiClient.get(`/clients/${id}`),
   getById: (id) => apiClient.get(`/clients/${id}`),
   update: (id, data) => apiClient.put(`/clients/${id}`, data),
   delete: (id) => apiClient.delete(`/clients/${id}`),
@@ -94,6 +98,9 @@ export const timesheetsAPI = {
   update: (id, data) => apiClient.put(`/timesheets/${id}`, data),
   delete: (id) => apiClient.delete(`/timesheets/${id}`),
   submit: (id) => apiClient.post(`/timesheets/${id}/submit`),
+  // Upload endpoints
+  getUploads: (params) => apiClient.get('/timesheets/uploads/', { params }),
+  upload: (formData) => apiClient.post('/timesheets/uploads/', formData),
 };
 
 export const approvalsAPI = {
@@ -132,4 +139,19 @@ export const notificationsAPI = {
 export const dashboardAPI = {
   getData: (params) => apiClient.get('/dashboard/', { params }),
   getStats: () => apiClient.get('/dashboard/stats'),
+};
+
+export const integrationsAPI = {
+  // Get status of all integrations
+  getStatus: () => apiClient.get('/integrations/status'),
+  // Gmail OAuth
+  getGmailAuthUrl: () => apiClient.get('/integrations/gmail/auth'),
+  disconnectGmail: () => apiClient.delete('/integrations/gmail/disconnect'),
+  // Drive OAuth
+  getDriveAuthUrl: () => apiClient.get('/integrations/drive/auth'),
+  disconnectDrive: () => apiClient.delete('/integrations/drive/disconnect'),
+  // General
+  list: () => apiClient.get('/integrations/'),
+  toggle: (type) => apiClient.post(`/integrations/${type}/toggle`),
+  test: (type) => apiClient.post(`/integrations/${type}/test`),
 };

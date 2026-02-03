@@ -11,8 +11,7 @@ import Employees from './pages/Employees';
 import EmployeeOnboarding from './pages/EmployeeOnboarding';
 import Clients from './pages/Clients';
 import ClientOnboarding from './pages/ClientOnboarding';
-import Calendars from './pages/Calendars';
-import Configurations from './pages/Configurations';
+import Connect from './pages/Connect';
 
 function App() {
   return (
@@ -67,6 +66,17 @@ function App() {
           />
 
           <Route
+            path="/employees/edit/:id"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Layout>
+                  <EmployeeOnboarding />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/clients"
             element={
               <ProtectedRoute allowedRoles={['manager', 'finance', 'admin']}>
@@ -89,22 +99,22 @@ function App() {
           />
 
           <Route
-            path="/calendars"
+            path="/clients/edit/:id"
             element={
-              <ProtectedRoute allowedRoles={['manager', 'admin']}>
+              <ProtectedRoute allowedRoles={['admin']}>
                 <Layout>
-                  <Calendars />
+                  <ClientOnboarding />
                 </Layout>
               </ProtectedRoute>
             }
           />
 
           <Route
-            path="/configurations"
+            path="/connect"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Layout>
-                  <Configurations />
+                  <Connect />
                 </Layout>
               </ProtectedRoute>
             }

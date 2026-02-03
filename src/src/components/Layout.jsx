@@ -3,16 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import {
   Clock,
   Users,
-  FileText,
-  Settings,
   LogOut,
-  Calendar,
   LayoutDashboard,
   Building2,
   Bell,
   ChevronRight,
-  UserPlus,
-  PlusCircle
+  Link2
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -30,20 +26,10 @@ const Layout = ({ children }) => {
     { name: 'Timesheets', href: '/timesheets', icon: Clock, roles: ['manager', 'finance', 'admin'] },
     { name: 'Employees', href: '/employees', icon: Users, roles: ['manager', 'finance', 'admin'] },
     { name: 'Clients', href: '/clients', icon: Building2, roles: ['manager', 'finance', 'admin'] },
-    { name: 'Calendars', href: '/calendars', icon: Calendar, roles: ['manager', 'admin'] },
-    { name: 'Configurations', href: '/configurations', icon: Settings, roles: ['admin'] },
-  ];
-
-  const quickActions = [
-    { name: 'New Client', href: '/clients/onboard', icon: PlusCircle, roles: ['admin'] },
-    { name: 'New Employee', href: '/employees/onboard', icon: UserPlus, roles: ['admin'] },
+    { name: 'Connect', href: '/connect', icon: Link2, roles: ['admin'] },
   ];
 
   const filteredNavigation = navigation.filter((item) =>
-    item.roles.includes(user?.role)
-  );
-
-  const filteredQuickActions = quickActions.filter((item) =>
     item.roles.includes(user?.role)
   );
 
@@ -99,27 +85,6 @@ const Layout = ({ children }) => {
       <div className="flex pt-14">
         {/* Sidebar */}
         <aside className="w-64 bg-white min-h-[calc(100vh-3.5rem)] border-r border-gray-200 fixed left-0 top-14 bottom-0 overflow-y-auto">
-          {/* Quick Actions */}
-          {filteredQuickActions.length > 0 && (
-            <div className="p-4 border-b">
-              <div className="space-y-2">
-                {filteredQuickActions.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className="flex items-center justify-center space-x-2 w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{item.name}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Main Navigation */}
           <nav className="p-3 space-y-1">
             <p className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">

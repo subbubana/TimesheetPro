@@ -1,14 +1,56 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { clientsAPI } from '../api/client';
 import { AlertCircle, ChevronLeft, ChevronRight, Building2, Calendar, DollarSign, Settings } from 'lucide-react';
 
 const ClientOnboarding = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = !!id;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+  useEffect(() => {
+    if (isEditMode) {
+      fetchClientDetails();
+    }
+  }, [id]);
+
+  const fetchClientDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await clientsAPI.get(id);
+      const client = response.data;
+
+      setFormData({
+        name: client.name,
+        code: client.code,
+        contact_email: client.contact_email || '',
+        billing_email: client.billing_email || '',
+        bill_rate: client.bill_rate || '',
+
+        week_start_day: client.week_start_day,
+        weekend_days: JSON.parse(client.weekend_days || '[0, 6]'),
+
+        overtime_threshold_daily: client.overtime_threshold_daily,
+        overtime_threshold_weekly: client.overtime_threshold_weekly,
+        overtime_multiplier: client.overtime_multiplier,
+
+        default_submission_frequency: client.default_submission_frequency,
+        email_inbox_path: client.email_inbox_path || '',
+        drive_folder_path: client.drive_folder_path || '',
+
+        non_working_dates: client.non_working_dates || [],
+      });
+    } catch (error) {
+      console.error('Failed to fetch client details:', error);
+      setError('Failed to load client details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     // Basic Information
@@ -144,7 +186,11 @@ const ClientOnboarding = () => {
         non_working_dates: formData.non_working_dates,
       };
 
-      await clientsAPI.create(clientData);
+      if (isEditMode) {
+        await clientsAPI.update(id, clientData);
+      } else {
+        await clientsAPI.create(clientData);
+      }
       navigate('/clients');
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to onboard client');
@@ -164,8 +210,8 @@ const ClientOnboarding = () => {
     <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Client Onboarding</h1>
-        <p className="text-gray-600 mt-2">Configure your client with complete settings and business calendar</p>
+        <h1 className="text-3xl font-bold text-gray-900">{isEditMode ? 'Edit Client' : 'Client Onboarding'}</h1>
+        <p className="text-gray-600 mt-2">{isEditMode ? 'Update client configuration and business rules' : 'Configure your client with complete settings and business calendar'}</p>
       </div>
 
       {/* Step Indicator */}
@@ -570,7 +616,7 @@ const ClientOnboarding = () => {
               disabled={loading}
               className="btn btn-primary disabled:opacity-50"
             >
-              {loading ? 'Creating Client...' : 'Create Client'}
+              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Client' : 'Create Client')}
             </button>
           )}
         </div>

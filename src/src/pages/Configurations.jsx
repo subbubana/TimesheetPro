@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { configurationsAPI } from '../api/client';
 import { Settings, Plus, AlertCircle } from 'lucide-react';
+import { EmailIntegration, DriveIntegration } from '../components/IntegrationCards';
 
 const Configurations = () => {
   const [configurations, setConfigurations] = useState([]);

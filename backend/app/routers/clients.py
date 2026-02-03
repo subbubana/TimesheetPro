@@ -74,8 +74,22 @@ def get_client(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
         )
+    
+    # Fetch current year's calendar dates
+    current_year = datetime.now().year
+    calendar = db.query(BusinessCalendar).filter(
+        BusinessCalendar.client_id == client_id,
+        BusinessCalendar.year == current_year
+    ).first()
 
-    return client
+    response_data = ClientResponse.model_validate(client)
+    if calendar and calendar.non_working_dates:
+        try:
+            response_data.non_working_dates = json.loads(calendar.non_working_dates)
+        except:
+            response_data.non_working_dates = []
+            
+    return response_data
 
 
 @router.put("/{client_id}", response_model=ClientResponse)
@@ -92,14 +106,54 @@ def update_client(
             detail="Client not found"
         )
 
+    # Separate non_working_dates from other updates
     update_data = client_update.model_dump(exclude_unset=True)
+    non_working_dates = update_data.pop('non_working_dates', None)
+
     for field, value in update_data.items():
         setattr(client, field, value)
 
+    # Update/Create Business Calendar if non_working_dates is provided
+    if non_working_dates is not None:
+        current_year = datetime.now().year
+        calendar = db.query(BusinessCalendar).filter(
+            BusinessCalendar.client_id == client_id,
+            BusinessCalendar.year == current_year
+        ).first()
+
+        if calendar:
+            calendar.non_working_dates = json.dumps(non_working_dates)
+        else:
+            calendar = BusinessCalendar(
+                client_id=client.id,
+                year=current_year,
+                name=f"{client.name} - {current_year} Calendar",
+                non_working_dates=json.dumps(non_working_dates),
+                is_active=True
+            )
+            db.add(calendar)
+
     db.commit()
     db.refresh(client)
+    
+    # Return response with updated dates
+    response_data = ClientResponse.model_validate(client)
+    if non_working_dates is not None:
+         response_data.non_working_dates = non_working_dates
+    else:
+        # Fetch existing if not updated
+        current_year = datetime.now().year
+        calendar = db.query(BusinessCalendar).filter(
+            BusinessCalendar.client_id == client_id,
+            BusinessCalendar.year == current_year
+        ).first()
+        if calendar and calendar.non_working_dates:
+            try:
+                response_data.non_working_dates = json.loads(calendar.non_working_dates)
+            except:
+                pass
 
-    return client
+    return response_data
 
 
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)

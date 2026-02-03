@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { clientsAPI, employeesAPI } from '../api/client';
-import { Building2, Plus, DollarSign, Calendar, Clock, Users, Search, Mail, Settings } from 'lucide-react';
+import { Building2, Plus, DollarSign, Calendar, Clock, Users, Search, Mail, Settings, Edit2 } from 'lucide-react';
 
 const Clients = () => {
   const [clients, setClients] = useState([]);
@@ -153,6 +153,15 @@ const Clients = () => {
           <span className="text-xs text-gray-500">
             Created {new Date(client.created_at).toLocaleDateString()}
           </span>
+          <div className="flex items-center space-x-2">
+            <Link
+              to={`/clients/edit/${client.id}`}
+              className="p-1 text-gray-400 hover:text-blue-600"
+              title="Edit Client"
+            >
+              <Edit2 className="h-4 w-4" />
+            </Link>
+          </div>
           <Link
             to={`/employees?client=${client.id}`}
             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
