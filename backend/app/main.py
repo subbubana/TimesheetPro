@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.routers import auth, employees, clients, timesheets, approvals, calendars, configurations, notifications, dashboard, timesheets_upload, integrations, monitoring, webhooks
 
+from app.routers import auth, employees, clients, timesheets, approvals, calendars, configurations, drive
 
 Base.metadata.create_all(bind=engine)
 
@@ -41,6 +42,8 @@ from app.scheduler import start_scheduler
 @app.on_event("startup")
 def startup_event():
     start_scheduler()
+app.include_router(drive.router)
+
 
 
 @app.get("/")

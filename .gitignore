@@ -78,3 +78,7 @@ build/
 
 # Uploads
 uploads/
+
+
+
+service_account.json
