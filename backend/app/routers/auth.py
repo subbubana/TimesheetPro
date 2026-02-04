@@ -3,22 +3,42 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Employee
+from app.models import Employee, UserRole
 from app.schemas import EmployeeCreate, EmployeeResponse, LoginRequest, Token
 from app.auth import (
     verify_password,
     get_password_hash,
     create_access_token,
     create_refresh_token,
-    get_current_employee
+    get_current_employee,
+    require_role
 )
 from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+# Roles that are allowed to log in (employees cannot log in)
+ALLOWED_LOGIN_ROLES = [UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE]
+
 
 @router.post("/register", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
-def register(employee_data: EmployeeCreate, db: Session = Depends(get_db)):
+def register(
+    employee_data: EmployeeCreate,
+    db: Session = Depends(get_db),
+    current_employee: Employee = Depends(require_role(UserRole.ADMIN))
+):
+    """
+    Register a new admin/manager/finance user.
+    Only admins can create new users with login capability.
+    Employees are created via the /employees endpoint without passwords.
+    """
+    # Only allow registration of non-employee roles
+    if employee_data.role == UserRole.EMPLOYEE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Employees cannot be registered with passwords. Use /employees endpoint instead."
+        )
+
     existing_employee = db.query(Employee).filter(Employee.email == employee_data.email).first()
     if existing_employee:
         raise HTTPException(
@@ -35,7 +55,6 @@ def register(employee_data: EmployeeCreate, db: Session = Depends(get_db)):
         role=employee_data.role,
         submission_frequency=employee_data.submission_frequency,
         manager_id=employee_data.manager_id,
-        client_id=employee_data.client_id,
         week_start_day=employee_data.week_start_day
     )
 
@@ -50,7 +69,27 @@ def register(employee_data: EmployeeCreate, db: Session = Depends(get_db)):
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     employee = db.query(Employee).filter(Employee.email == login_data.email).first()
 
-    if not employee or not verify_password(login_data.password, employee.hashed_password):
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+
+    # Check if the user role is allowed to login
+    if employee.role not in ALLOWED_LOGIN_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account type does not have login access"
+        )
+
+    # Check if user has a password set
+    if not employee.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account does not have login credentials"
+        )
+
+    if not verify_password(login_data.password, employee.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"

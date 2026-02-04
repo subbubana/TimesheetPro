@@ -74,6 +74,10 @@ build/
 
 # Misc
 .cache/
+.claude/
+
+# Uploads
+uploads/
 
 
 

@@ -53,6 +53,212 @@ timesheetpro/
 
 ## Quick Start
 
+### Option 1: Docker (Recommended)
+
+The easiest way to run TimesheetPro is using Docker Compose.
+
+**Prerequisites:**
+- Docker Desktop installed and running
+- Docker Compose (included with Docker Desktop)
+
+---
+
+#### 🚀 Fresh Setup (First Time)
+
+1. **Navigate to the project folder:**
+   ```bash
+   cd timesheetpro
+   ```
+
+2. **Start all services with build:**
+   ```bash
+   docker compose up --build
+   ```
+
+   This will:
+   - 🐘 Start PostgreSQL database on port 5432
+   - 🔄 Run database migrations automatically via Alembic
+   - 👤 Create the default admin user (`admin@timesheetpro.com` / `1234`)
+   - 🖥️ Start the backend API on port 8000
+   - 🌐 Start the frontend on port 3000
+
+3. **Access the application:**
+   | Service | URL |
+   |---------|-----|
+   | Frontend | http://localhost:3000 |
+   | Backend API | http://localhost:8000 |
+   | API Docs (Swagger) | http://localhost:8000/docs |
+
+---
+
+#### 🔄 Reusing Existing Containers
+
+After the initial setup, use these commands to manage your containers:
+
+| Command | Description |
+|---------|-------------|
+| `docker compose up` | Start existing containers (no rebuild) |
+| `docker compose up -d` | Start in detached mode (background) |
+| `docker compose stop` | Stop containers but keep data |
+| `docker compose start` | Restart stopped containers |
+| `docker compose down` | Stop and remove containers (keeps data volume) |
+| `docker compose down -v` | Stop, remove containers, **and delete all data** |
+| `docker compose logs -f` | View live logs from all services |
+| `docker compose logs -f backend` | View logs for backend only |
+
+---
+
+#### 🔧 Common Docker Commands
+
+```bash
+# Rebuild only the backend after code changes
+docker compose up --build backend
+
+# Rebuild only the frontend
+docker compose up --build frontend
+
+# Reset the database completely (fresh start)
+docker compose down -v && docker compose up --build
+
+# View running containers
+docker compose ps
+
+# Access the PostgreSQL database directly
+docker exec -it timesheetpro-db psql -U timesheetpro -d timesheetpro
+
+# Access the backend container shell
+docker exec -it timesheetpro-backend sh
+```
+
+---
+
+#### 🧹 Troubleshooting
+
+**If admin user creation fails or you see enum errors:**
+```bash
+# Reset the database and rebuild
+docker compose down -v
+docker compose up --build
+```
+
+**If ports are already in use:**
+```bash
+# Check what's using the port
+netstat -ano | findstr :8000
+netstat -ano | findstr :3000
+
+# Or change ports in docker-compose.yml
+```
+
+**If containers won't start:**
+```bash
+# View detailed logs
+docker compose logs
+
+# Force rebuild from scratch
+docker compose build --no-cache
+docker compose up
+```
+
+---
+
+### 🔐 Default Login Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@timesheetpro.com | 1234 |
+
+---
+
+### 👥 How to Onboard Employees
+
+After logging in as admin, follow these steps to set up your organization:
+
+#### Step 1: Create Clients/Projects
+
+1. Navigate to **Clients** in the sidebar
+2. Click **"Add Client"**
+3. Fill in client details:
+   - **Name**: Company/project name
+   - **Code**: Short unique identifier (e.g., "ACME")
+   - **Bill Rate**: Hourly rate for this client
+   - **Week Start Day**: When their work week begins
+   - **Overtime Thresholds**: Daily (8h) and weekly (40h) limits
+4. Click **Save**
+
+#### Step 2: Create Employees
+
+1. Navigate to **Employees** in the sidebar
+2. Click **"Add Employee"**
+3. Fill in employee details:
+   - **Email**: Employee's login email
+   - **First/Last Name**: Full name
+   - **Role**: Choose from Employee, Manager, Finance, or Admin
+   - **Submission Frequency**: Weekly, Biweekly, or Monthly
+   - **Manager**: Assign a manager (optional)
+   - **Pay Rate**: Hourly pay rate
+4. Click **Save**
+
+> **Note**: After creating an employee, they can register using the `/auth/register` endpoint with their email to set their password.
+
+#### Step 3: Assign Employees to Clients
+
+1. Go to **Employees** → Select an employee
+2. Click **"Manage Assignments"**
+3. Add client assignments:
+   - Select the client
+   - Set start/end dates (optional)
+   - Override pay rate if needed
+4. Click **Save**
+
+#### Step 4: Set Up Holiday Calendars (Optional)
+
+1. Navigate to **Calendars** in the sidebar
+2. Create a new calendar for each client/region
+3. Add holiday dates that should be flagged in timesheets
+4. Link calendars to clients
+
+---
+
+### 📝 Employee Workflow
+
+Once employees are onboarded, they can:
+
+1. **Login** at http://localhost:3000/login
+2. **Create Timesheets**: 
+   - Select client and date range
+   - Enter daily hours worked
+   - Add descriptions/notes
+3. **Submit for Approval**: Click "Submit" when ready
+4. **Track Status**: View pending/approved/rejected timesheets
+
+---
+
+### ✅ Manager/Admin Workflow
+
+Managers and admins can:
+
+1. **View All Timesheets**: See submitted timesheets from all employees
+2. **Approve/Reject**: Review and approve or reject with comments
+3. **Generate Reports**: Export timesheet data
+4. **Manage Settings**: Update system configurations
+
+---
+
+To stop the services:
+```bash
+docker compose down
+```
+
+To stop and remove all data:
+```bash
+docker compose down -v
+```
+
+---
+
+### Option 2: Manual Setup
+
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+
