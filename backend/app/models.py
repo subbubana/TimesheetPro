@@ -294,6 +294,7 @@ class IntegrationConfig(Base):
     type = Column(SQLEnum(IntegrationType, values_callable=lambda x: [e.value for e in x]), nullable=False, unique=True)
     config_data = Column(Text, nullable=False)  # JSON encrypted: IMAP settings, OAuth tokens, etc.
     is_active = Column(Boolean, default=False)  # Monitoring enabled/disabled
+    sync_interval_minutes = Column(Integer, default=60)  # Polling interval in minutes
     last_sync = Column(DateTime, nullable=True)  # Last successful sync timestamp
     sync_count = Column(Integer, default=0)  # Number of items processed
     created_at = Column(DateTime, default=datetime.utcnow)

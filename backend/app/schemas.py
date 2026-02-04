@@ -410,6 +410,15 @@ class EmailConfigCreate(BaseModel):
     imap_port: int = 993
     email: EmailStr
     password: str  # Will be encrypted before storage
+    sync_interval_minutes: int = 60
+
+
+class EmailConfigUpdate(BaseModel):
+    imap_server: Optional[str] = None
+    imap_port: Optional[int] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    sync_interval_minutes: Optional[int] = None
 
 
 class EmailConfigResponse(BaseModel):
@@ -429,6 +438,7 @@ class EmailConfigResponse(BaseModel):
 class DriveConfigCreate(BaseModel):
     oauth_credentials: str  # JSON string with OAuth tokens
     folder_id: str
+    sync_interval_minutes: int = 60
 
 
 class DriveConfigResponse(BaseModel):
@@ -445,11 +455,26 @@ class DriveConfigResponse(BaseModel):
         from_attributes = True
 
 
+class DriveFolder(BaseModel):
+    id: str
+    name: str
+
+
+class DriveFolderListResponse(BaseModel):
+    folders: List[DriveFolder]
+
+
+class DriveConfigUpdate(BaseModel):
+    folder_id: Optional[str] = None
+    sync_interval_minutes: Optional[int] = None
+
+
 class IntegrationConfigResponse(BaseModel):
     """Generic integration config response"""
     id: int
     type: IntegrationType
     is_active: bool
+    sync_interval_minutes: int
     last_sync: Optional[datetime] = None
     sync_count: int
     created_at: datetime

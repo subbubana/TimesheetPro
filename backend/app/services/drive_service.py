@@ -3,7 +3,7 @@ Google Drive monitoring service for automatic timesheet collection.
 Monitors a specified Drive folder for files owned by registered employees.
 """
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from cryptography.fernet import Fernet
@@ -249,8 +249,30 @@ class DriveMonitoringService:
             if not employee_emails:
                 return {"success": False, "message": "No active employees found"}
             
+            # 1. Fetch Watermark (Start Time)
+            integration = self.db.query(IntegrationConfig).filter(
+                IntegrationConfig.type == IntegrationType.DRIVE
+            ).first()
+            
+            now_utc = datetime.utcnow()
+            
+            if integration.last_sync:
+                start_time = integration.last_sync
+            else:
+                lookback_minutes = integration.sync_interval_minutes or 60
+                start_time = now_utc - timedelta(minutes=lookback_minutes)
+                
+            # Format for Drive API (RFC 3339 format, e.g., '2012-06-04T12:00:00')
+            start_time_str = start_time.isoformat() + "Z"
+            print(f"Starting Drive Sync. Looking for files modified/created after: {start_time_str}")
+            
             # Query files in folder
-            query = f"'{folder_id}' in parents and trashed=false"
+            # Filter by folder ID AND not trashed AND (modified > start_time OR created > start_time)
+            query = (
+                f"'{folder_id}' in parents and trashed=false and "
+                f"(modifiedTime > '{start_time_str}' or createdTime > '{start_time_str}')"
+            )
+            
             results = self.drive_service.files().list(
                 q=query,
                 fields='files(id, name, mimeType, owners, modifiedTime, createdTime)',
@@ -266,15 +288,11 @@ class DriveMonitoringService:
                 if self.process_file(file_metadata, employee_emails):
                     processed_count += 1
             
-            # Update integration config
-            config = self.db.query(IntegrationConfig).filter(
-                IntegrationConfig.type == IntegrationType.DRIVE
-            ).first()
-            
-            if config:
-                config.last_sync = datetime.utcnow()
-                config.sync_count += processed_count
-                self.db.commit()
+            # Update Watermark
+            integration.last_sync = now_utc
+            integration.sync_count = (integration.sync_count or 0) + processed_count
+            integration.updated_at = now_utc
+            self.db.commit()
             
             return {
                 "success": True,

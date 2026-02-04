@@ -149,9 +149,13 @@ export const integrationsAPI = {
   disconnectGmail: () => apiClient.delete('/integrations/gmail/disconnect'),
   // Drive OAuth
   getDriveAuthUrl: () => apiClient.get('/integrations/drive/auth'),
+  listDriveFolders: () => apiClient.get('/integrations/drive/folders'),
+  updateDriveConfig: (data) => apiClient.patch('/integrations/drive/config', data),
   disconnectDrive: () => apiClient.delete('/integrations/drive/disconnect'),
   // General
   list: () => apiClient.get('/integrations/'),
   toggle: (type) => apiClient.post(`/integrations/${type}/toggle`),
+  toggle: (type) => apiClient.post(`/integrations/${type}/toggle`),
   test: (type) => apiClient.post(`/integrations/${type}/test`),
+  sync: (type) => apiClient.post(`/integrations/${type}/sync`),
 };

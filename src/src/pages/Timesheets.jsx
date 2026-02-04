@@ -14,10 +14,12 @@ import {
   MousePointerClick,
   Sparkles,
   Building2,
-  User
+  User,
+  RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import axios from 'axios';
+import { integrationsAPI } from '../api/client';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -229,6 +231,22 @@ const Timesheets = () => {
     setUploadResult(null);
   };
 
+  const handleSync = async () => {
+    setLoading(true);
+    try {
+      // Sync both Drive and Email
+      await Promise.allSettled([
+        integrationsAPI.sync('email'),
+        integrationsAPI.sync('drive')
+      ]);
+      await fetchTimesheets();
+    } catch (error) {
+      console.error('Sync failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -245,14 +263,23 @@ const Timesheets = () => {
           <h1 className="text-3xl font-bold text-gray-900">Timesheets</h1>
           <p className="text-gray-600 mt-2">Manage timesheets collected via email, drive, or manual upload</p>
         </div>
-        <button
-          onClick={() => setShowUploadModal(true)}
-          className="group relative inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:-translate-y-0.5"
-        >
-          <Upload className="h-5 w-5 mr-2 group-hover:animate-bounce" />
-          Upload Timesheet
-          <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-300 animate-pulse" />
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleSync}
+            className="flex items-center px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-colors"
+          >
+            <RefreshCw className="h-5 w-5 mr-2" />
+            Sync Now
+          </button>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="group relative inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:-translate-y-0.5"
+          >
+            <Upload className="h-5 w-5 mr-2 group-hover:animate-bounce" />
+            Upload Timesheet
+            <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-300 animate-pulse" />
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

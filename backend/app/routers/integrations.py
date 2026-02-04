@@ -16,9 +16,9 @@ from urllib.parse import urlencode
 from app.database import get_db
 from app.models import IntegrationConfig, Employee, IntegrationType
 from app.schemas import (
-    EmailConfigCreate, EmailConfigResponse,
+    EmailConfigCreate, EmailConfigResponse, EmailConfigUpdate,
     DriveConfigCreate, DriveConfigResponse,
-    IntegrationConfigResponse
+    IntegrationConfigResponse, DriveFolderListResponse, DriveConfigUpdate
 )
 from app.auth import require_role, get_current_employee
 
@@ -86,7 +86,8 @@ def create_email_config(
     integration = IntegrationConfig(
         type=IntegrationType.EMAIL,
         config_data=encrypted_data,
-        is_active=False  # Start as inactive until tested
+        is_active=False,  # Start as inactive until tested
+        sync_interval_minutes=config.sync_interval_minutes
     )
     
     db.add(integration)
@@ -117,7 +118,7 @@ def get_email_config(
 
 @router.put("/email", response_model=EmailConfigResponse)
 def update_email_config(
-    config: EmailConfigCreate,
+    config: EmailConfigUpdate,
     current_user: Employee = Depends(require_role("admin")),
     db: Session = Depends(get_db)
 ):
@@ -132,16 +133,27 @@ def update_email_config(
             detail="Email integration not configured. Use POST to create."
         )
     
-    # Encrypt new data
-    config_data = {
-        "imap_server": config.imap_server,
-        "imap_port": config.imap_port,
-        "email": config.email,
-        "password": config.password
-    }
-    encrypted_data = encrypt_config(config_data)
+    # Decrypt existing data to merge updates
+    try:
+        current_data = decrypt_config(existing.config_data)
+    except:
+        current_data = {}
+
+    # Update fields if provided
+    if config.imap_server:
+        current_data["imap_server"] = config.imap_server
+    if config.imap_port:
+        current_data["imap_port"] = config.imap_port
+    if config.email:
+        current_data["email"] = config.email
+    if config.password:
+        current_data["password"] = config.password
+
+    existing.config_data = encrypt_config(current_data)
     
-    existing.config_data = encrypted_data
+    if config.sync_interval_minutes is not None:
+        existing.sync_interval_minutes = config.sync_interval_minutes
+
     existing.updated_at = datetime.utcnow()
     
     db.commit()
@@ -183,7 +195,8 @@ def create_drive_config(
     integration = IntegrationConfig(
         type=IntegrationType.DRIVE,
         config_data=encrypted_data,
-        is_active=False  # Start as inactive until tested
+        is_active=False,  # Start as inactive until tested
+        sync_interval_minutes=config.sync_interval_minutes
     )
     
     db.add(integration)
@@ -243,6 +256,106 @@ def update_drive_config(
     db.refresh(existing)
     
     return existing
+
+
+@router.get("/drive/folders", response_model=DriveFolderListResponse)
+def list_drive_folders(
+    current_user: Employee = Depends(require_role("admin")),
+    db: Session = Depends(get_db)
+):
+    """List folders from the connected Google Drive account."""
+    config = db.query(IntegrationConfig).filter(
+        IntegrationConfig.type == IntegrationType.DRIVE
+    ).first()
+    
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Drive integration not configured"
+        )
+        
+    try:
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        
+        # specific decrypt logic
+        data = decrypt_config(config.config_data)
+        
+        # Check if we have valid tokens
+        if 'access_token' not in data:
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Valid OAuth tokens not found. Please reconnect Drive."
+            )
+            
+        creds = Credentials(
+            token=data.get('access_token'),
+            refresh_token=data.get('refresh_token'),
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            scopes=['https://www.googleapis.com/auth/drive.readonly'] 
+        )
+        
+        service = build('drive', 'v3', credentials=creds)
+        
+        # Query for folders
+        results = service.files().list(
+            q="mimeType='application/vnd.google-apps.folder' and trashed=false",
+            fields="files(id, name)",
+            pageSize=50,
+            orderBy="folder,name"
+        ).execute()
+        
+        folders = results.get('files', [])
+        return {"folders": folders}
+        
+    except Exception as e:
+        print(f"Error listing folders: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list folders: {str(e)}"
+        )
+
+
+@router.patch("/drive/config", response_model=DriveConfigResponse)
+def update_drive_folder_config(
+    config_update: DriveConfigUpdate,
+    current_user: Employee = Depends(require_role("admin")),
+    db: Session = Depends(get_db)
+):
+    """Update the monitored Drive folder ID."""
+    existing = db.query(IntegrationConfig).filter(
+        IntegrationConfig.type == IntegrationType.DRIVE
+    ).first()
+    
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Drive integration not configured"
+        )
+    
+    # Decrypt, update, re-encrypt
+    try:
+        if config_update.folder_id:
+            data = decrypt_config(existing.config_data)
+            data['folder_id'] = config_update.folder_id
+            existing.config_data = encrypt_config(data)
+        
+        if config_update.sync_interval_minutes is not None:
+            existing.sync_interval_minutes = config_update.sync_interval_minutes
+        existing.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(existing)
+        
+        return existing
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update config: {str(e)}"
+        )
 
 
 # Common Endpoints
@@ -342,6 +455,70 @@ def test_integration(
             "message": f"Error testing connection: {str(e)}",
             "type": integration_type.value
         }
+
+
+@router.post("/{integration_type}/sync")
+def sync_integration(
+    integration_type: IntegrationType,
+    current_user: Employee = Depends(require_role("admin")),
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger manual sync for this integration.
+    """
+    config = db.query(IntegrationConfig).filter(
+        IntegrationConfig.type == integration_type
+    ).first()
+    
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{integration_type.value} integration not configured"
+        )
+    
+    if not config.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{integration_type.value} integration is disabled. Enable it first."
+        )
+
+    try:
+        result = 0
+        message = ""
+
+        if integration_type == IntegrationType.EMAIL:
+            from app.services.email_service import EmailMonitoringService
+            service = EmailMonitoringService(db)
+            sync_result = service.monitor_inbox()
+            
+            if not sync_result.get("success"):
+                raise Exception(sync_result.get("message", "Email sync failed"))
+                
+            result = sync_result.get("processed_attachments", 0)
+            message = sync_result.get("message")
+            
+        elif integration_type == IntegrationType.DRIVE:
+            from app.services.drive_service import DriveMonitoringService
+            service = DriveMonitoringService(db)
+            sync_result = service.monitor_folder()
+            
+            if not sync_result.get("success"):
+                raise Exception(sync_result.get("message", "Drive sync failed"))
+                
+            result = sync_result.get("processed_files", 0)
+            message = sync_result.get("message")
+            
+        return {
+            "success": True,
+            "message": message or f"Sync completed. Processed {result} new items.",
+            "processed_count": result,
+            "type": integration_type.value
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Sync failed: {str(e)}"
+        )
 
 
 @router.get("/")

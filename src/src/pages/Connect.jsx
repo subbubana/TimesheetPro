@@ -11,19 +11,32 @@ import {
   AlertCircle,
   Sparkles,
   Shield,
-  Zap
+  Zap,
+  Folder,
+  Settings
 } from 'lucide-react';
 import { integrationsAPI } from '../api/client';
 
 const Connect = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState({
-    gmail: { connected: false, configured: false, last_sync: null },
-    drive: { connected: false, configured: false, last_sync: null }
+    gmail: { connected: false, configured: false, last_sync: null, sync_interval_minutes: 60 },
+    drive: { connected: false, configured: false, last_sync: null, sync_interval_minutes: 60 }
   });
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(null);
   const [notification, setNotification] = useState(null);
+
+  // Drive Folder Selection State
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [folders, setFolders] = useState([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState('');
+
+  // Sync Settings State
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncConfig, setSyncConfig] = useState({ type: null, interval: 60 });
+  const [savingSync, setSavingSync] = useState(false);
 
   useEffect(() => {
     fetchStatus();
@@ -98,10 +111,83 @@ const Connect = () => {
     try {
       const response = await integrationsAPI.getStatus();
       setStatus(response.data);
+      if (response.data.drive.folder_id) {
+        setSelectedFolderId(response.data.drive.folder_id);
+      }
     } catch (error) {
       console.error('Failed to fetch integration status:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFolders = async () => {
+    setLoadingFolders(true);
+    setFolderModalOpen(true);
+    try {
+      const response = await integrationsAPI.listDriveFolders();
+      setFolders(response.data.folders);
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: 'Failed to list Drive folders. Please try again.'
+      });
+      setFolderModalOpen(false);
+    } finally {
+      setLoadingFolders(false);
+    }
+  };
+
+  const saveFolderSelection = async () => {
+    if (!selectedFolderId) return;
+
+    try {
+      await integrationsAPI.updateDriveConfig({ folder_id: selectedFolderId });
+      setNotification({
+        type: 'success',
+        message: 'Drive folder updated successfully!'
+      });
+      setFolderModalOpen(false);
+      fetchStatus();
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: 'Failed to update folder selection.'
+      });
+    }
+  };
+
+  const handleOpenSyncSettings = (type) => {
+    setSyncConfig({
+      type,
+      interval: status[type].sync_interval_minutes || 60
+    });
+    setSyncModalOpen(true);
+  };
+
+  const handleSaveSyncSettings = async () => {
+    setSavingSync(true);
+    try {
+      const { type, interval } = syncConfig;
+      if (type === 'gmail') {
+        await integrationsAPI.updateEmailConfig({ sync_interval_minutes: parseInt(interval) });
+      } else {
+        await integrationsAPI.updateDriveConfig({ sync_interval_minutes: parseInt(interval) });
+      }
+
+      setNotification({
+        type: 'success',
+        message: 'Sync settings updated successfully!'
+      });
+      setSyncModalOpen(false);
+      fetchStatus();
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: 'Failed to update sync settings.'
+      });
+    } finally {
+      setSavingSync(false);
     }
   };
 
@@ -265,6 +351,13 @@ const Connect = () => {
                     Disconnect
                   </button>
                   <button
+                    onClick={() => handleOpenSyncSettings('gmail')}
+                    className="flex items-center px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </button>
+                  <button
                     onClick={fetchStatus}
                     className="flex items-center px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
                   >
@@ -364,6 +457,20 @@ const Connect = () => {
                     Disconnect
                   </button>
                   <button
+                    onClick={() => handleOpenSyncSettings('drive')}
+                    className="flex items-center px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </button>
+                  <button
+                    onClick={fetchFolders}
+                    className="flex items-center px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    <Folder className="h-4 w-4 mr-2" />
+                    Change Folder
+                  </button>
+                  <button
                     onClick={fetchStatus}
                     className="flex items-center px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
                   >
@@ -429,7 +536,116 @@ const Connect = () => {
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Folder Selection Modal */}
+      {folderModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Drive Folder</h3>
+
+            {loadingFolders ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto mb-6">
+                {folders.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">No folders found in Drive.</p>
+                ) : (
+                  folders.map((folder) => (
+                    <button
+                      key={folder.id}
+                      onClick={() => setSelectedFolderId(folder.id)}
+                      className={`w-full flex items-center p-3 rounded-lg text-left transition-colors ${selectedFolderId === folder.id
+                        ? 'bg-blue-50 border border-blue-200 text-blue-700'
+                        : 'hover:bg-gray-50 border border-transparent'
+                        }`}
+                    >
+                      <Folder className={`h-5 w-5 mr-3 ${selectedFolderId === folder.id ? 'text-blue-500' : 'text-gray-400'
+                        }`} />
+                      <span className="truncate">{folder.name}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setFolderModalOpen(false)}
+                className="px-4 py-2 text-gray-600 font-medium hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveFolderSelection}
+                disabled={!selectedFolderId || loadingFolders}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                Save Selection
+              </button>
+            </div>
+          </div>
+        </div>
+
+      )
+      }
+
+      {/* Sync Settings Modal */}
+      {
+        syncModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Sync Settings ({syncConfig.type === 'gmail' ? 'Gmail' : 'Drive'})
+              </h3>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sync Interval (minutes)
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    min="5"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    value={syncConfig.interval}
+                    onChange={(e) => setSyncConfig({ ...syncConfig, interval: e.target.value })}
+                  />
+                  <span className="text-gray-500 text-sm">min</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  How often to check for new timesheets automatically.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setSyncModalOpen(false)}
+                  className="px-4 py-2 text-gray-600 font-medium hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSyncSettings}
+                  disabled={savingSync}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center"
+                >
+                  {savingSync ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Settings'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 };
 

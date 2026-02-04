@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
 from app.routers import auth, employees, clients, timesheets, approvals, calendars, configurations, notifications, dashboard, timesheets_upload, integrations, monitoring, webhooks
-from app.services.email_idle import start_email_idle
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -35,9 +35,12 @@ app.include_router(integrations.router)
 app.include_router(monitoring.router)
 app.include_router(webhooks.router)
 
-# Start email IDLE monitoring (real-time)
-start_email_idle()
-# Note: Drive webhooks must be registered manually via /webhooks/drive/register endpoint
+from app.scheduler import start_scheduler
+
+# Start background scheduler for polling (Email & Drive)
+@app.on_event("startup")
+def startup_event():
+    start_scheduler()
 
 
 @app.get("/")

@@ -5,16 +5,13 @@ services:
   db:
     image: postgres:15-alpine
     container_name: timesheetpro-db
-    environment:
-      POSTGRES_USER: timesheetpro
-      POSTGRES_PASSWORD: timesheetpro
-      POSTGRES_DB: timesheetpro
+    env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U timesheetpro -d timesheetpro"]
+      test: [ "CMD-SHELL", "pg_isready -U timesheetpro -d timesheetpro" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,9 +24,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: timesheetpro-backend
-    environment:
-      DATABASE_URL: postgresql://timesheetpro:timesheetpro@db:5432/timesheetpro
-      SECRET_KEY: your-super-secret-key-change-in-production
+    env_file: .env
     ports:
       - "8000:8000"
     depends_on:
@@ -37,6 +32,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - ./uploads:/uploads
     command: >
       sh -c "
         echo 'Waiting for database...' &&
@@ -68,6 +64,7 @@ services:
 
 volumes:
   postgres_data:
+
 
 networks:
   timesheetpro-network:
