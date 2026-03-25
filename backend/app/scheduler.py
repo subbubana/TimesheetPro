@@ -5,6 +5,7 @@ from app.database import SessionLocal
 from app.models import IntegrationType, IntegrationConfig
 from app.services.email_service import EmailMonitoringService
 from app.services.drive_service import DriveMonitoringService
+from app.services.timesheet_processor import process_pending_uploads
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,8 @@ def sync_email_job():
     logger.info("Starting scheduled Email sync...")
     db = SessionLocal()
     try:
-        service = EmailMonitoringService()
-        result = service.check_inbox(db=db)
+        service = EmailMonitoringService(db)
+        result = service.monitor_inbox()
         logger.info(f"Email sync completed: {result}")
     except Exception as e:
         logger.error(f"Email sync failed: {str(e)}")
@@ -36,34 +37,37 @@ def sync_drive_job():
     logger.info("Starting scheduled Drive sync...")
     db = SessionLocal()
     try:
-        service = DriveMonitoringService()
-        result = service.monitor_folder(db=db)
+        service = DriveMonitoringService(db)
+        result = service.monitor_folder()
         logger.info(f"Drive sync completed: {result}")
     except Exception as e:
         logger.error(f"Drive sync failed: {str(e)}")
     finally:
         db.close()
 
+def processing_job():
+    """Scheduled job to process pending uploads with AI Agent"""
+    logger.info("Starting AI Processing job...")
+    process_pending_uploads()
+
 def start_scheduler():
     """Initialize and start the scheduler with jobs from config"""
-    # In a real app, we might load intervals from DB dynamically. 
-    # For now, we set a default or just use the DB value during the job execution?
-    # Actually, better to simply schedule them to run every X minutes and let the job logic check if it should proceed?
-    # OR, we restart the scheduler when config changes. 
-    # For simplicity required: We will run a check every 5 minutes, but the Logic inside handles "since last time".
     
-    # However, user asked to "set the timer too for the cron job".
-    # So we should ideally read from DB. But configuring dynamic jobs is complex.
-    # Simplest: Run every 1 minute, check if (now - last_sync) > sync_interval.
-    
-    # User said: "set the tmier too for the cron job" -> Configurable.
-    # Let's run a "Master Job" every minute that checks if it's time to run specific syncs.
-    
+    # Master Sync Check (Fetches files)
     scheduler.add_job(
         check_and_run_syncs,
         trigger=IntervalTrigger(minutes=1),
         id='master_sync_check',
         name='Check if sync is needed',
+        replace_existing=True
+    )
+
+    # Processing Job (Runs Agent) - Run frequently to pick up new files
+    scheduler.add_job(
+        processing_job,
+        trigger=IntervalTrigger(seconds=30),
+        id='ai_processing_job',
+        name='Process pending uploads with AI',
         replace_existing=True
     )
     

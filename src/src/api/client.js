@@ -158,4 +158,5 @@ export const integrationsAPI = {
   toggle: (type) => apiClient.post(`/integrations/${type}/toggle`),
   test: (type) => apiClient.post(`/integrations/${type}/test`),
   sync: (type) => apiClient.post(`/integrations/${type}/sync`),
+  runFullSync: () => apiClient.post('/integrations/sync/run'),
 };

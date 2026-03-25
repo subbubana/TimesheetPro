@@ -147,248 +147,271 @@ const Dashboard = () => {
           </p>
         </div>
 
-        {/* Period Selector */}
-        <div className="flex items-center space-x-3">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="input py-2"
-          >
-            {months.map(month => (
-              <option key={month.value} value={month.value}>{month.label}</option>
-            ))}
-          </select>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="input py-2"
-          >
-            {[2024, 2025, 2026, 2027].map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        {statCards.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Link
-              key={index}
-              to={stat.link}
-              className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
-            >
+      {/* Agent Actions */}
+      <div className="flex items-center space-x-3">
+        <button
+          onClick={async () => {
+            if (confirm('Run full sync and AI processing? This may take a moment.')) {
+              try {
+                alert('Sync started! The Agent is processing files in the background.');
+                await import('../api/client').then(m => m.integrationsAPI.runFullSync());
+              } catch (e) {
+                console.error(e);
+                alert('Failed to trigger sync.');
+              }
+            }
+          }}
+          className="flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 shadow-md transition-all"
+        >
+          <Clock className="h-5 w-5 mr-2 animate-pulse" />
+          Run Intelligent Sync
+        </button>
+
+        {/* Period Selector */}
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+          className="input py-2"
+        >
+          {months.map(month => (
+            <option key={month.value} value={month.value}>{month.label}</option>
+          ))}
+        </select>
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+          className="input py-2"
+        >
+          {[2024, 2025, 2026, 2027].map(year => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+
+      {/* Stats Cards */ }
+  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    {statCards.map((stat, index) => {
+      const Icon = stat.icon;
+      return (
+        <Link
+          key={index}
+          to={stat.link}
+          className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-center space-x-3">
+            <div className={`p-2 rounded-lg ${stat.color}`}>
+              <Icon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-xs text-gray-500">{stat.label}</p>
+            </div>
+          </div>
+        </Link>
+      );
+    })}
+  </div>
+
+  {/* Quick Actions */ }
+  <div className="grid md:grid-cols-3 gap-4 mb-8">
+    <Link
+      to="/clients/onboard"
+      className="flex items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+    >
+      <Building2 className="h-8 w-8 text-blue-600 mr-3" />
+      <div>
+        <p className="font-semibold text-gray-900">Add New Client</p>
+        <p className="text-sm text-gray-600">Onboard a client with calendar</p>
+      </div>
+    </Link>
+
+    <Link
+      to="/employees/onboard"
+      className="flex items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors"
+    >
+      <Users className="h-8 w-8 text-purple-600 mr-3" />
+      <div>
+        <p className="font-semibold text-gray-900">Add New Employee</p>
+        <p className="text-sm text-gray-600">Onboard an employee</p>
+      </div>
+    </Link>
+
+    <Link
+      to="/timesheets?status=submitted"
+      className="flex items-center p-4 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors"
+    >
+      <CheckCircle className="h-8 w-8 text-orange-600 mr-3" />
+      <div>
+        <p className="font-semibold text-gray-900">Review Timesheets</p>
+        <p className="text-sm text-gray-600">{stats.pending_timesheets} pending approval</p>
+      </div>
+    </Link>
+  </div>
+
+  {/* Legend */ }
+  <div className="mb-4 flex items-center space-x-6 text-sm bg-white rounded-lg p-3 border">
+    <span className="font-medium text-gray-700">Status Legend:</span>
+    <div className="flex items-center space-x-2">
+      <div className="w-4 h-4 rounded-full bg-green-500"></div>
+      <span className="text-gray-600">Approved</span>
+    </div>
+    <div className="flex items-center space-x-2">
+      <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+      <span className="text-gray-600">Submitted</span>
+    </div>
+    <div className="flex items-center space-x-2">
+      <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
+      <span className="text-gray-600">Draft</span>
+    </div>
+    <div className="flex items-center space-x-2">
+      <div className="w-4 h-4 rounded-full bg-gray-300"></div>
+      <span className="text-gray-600">Missing</span>
+    </div>
+  </div>
+
+  {/* Employees Grouped by Client */ }
+  <div className="space-y-4">
+    {dashboardData?.clients_with_employees?.length === 0 ? (
+      <div className="bg-white rounded-xl p-12 text-center border">
+        <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No clients with employees</h3>
+        <p className="text-gray-500 mb-4">Start by adding a client and then onboarding employees.</p>
+        <Link to="/clients/onboard" className="btn btn-primary">
+          Add Your First Client
+        </Link>
+      </div>
+    ) : (
+      dashboardData?.clients_with_employees?.map((client) => (
+        <div key={client.client_id} className="bg-white rounded-xl border overflow-hidden">
+          {/* Client Header */}
+          <button
+            onClick={() => toggleClient(client.client_id)}
+            className="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center space-x-4">
+              {expandedClients[client.client_id] ? (
+                <ChevronDown className="h-5 w-5 text-gray-500" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-gray-500" />
+              )}
               <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${stat.color}`}>
-                  <Icon className="h-5 w-5 text-white" />
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Building2 className="h-5 w-5 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-xs text-gray-500">{stat.label}</p>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900">{client.client_name}</h3>
+                  <p className="text-sm text-gray-500">{client.client_code} | {client.submission_frequency}</p>
                 </div>
               </div>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
-        <Link
-          to="/clients/onboard"
-          className="flex items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
-        >
-          <Building2 className="h-8 w-8 text-blue-600 mr-3" />
-          <div>
-            <p className="font-semibold text-gray-900">Add New Client</p>
-            <p className="text-sm text-gray-600">Onboard a client with calendar</p>
-          </div>
-        </Link>
-
-        <Link
-          to="/employees/onboard"
-          className="flex items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors"
-        >
-          <Users className="h-8 w-8 text-purple-600 mr-3" />
-          <div>
-            <p className="font-semibold text-gray-900">Add New Employee</p>
-            <p className="text-sm text-gray-600">Onboard an employee</p>
-          </div>
-        </Link>
-
-        <Link
-          to="/timesheets?status=submitted"
-          className="flex items-center p-4 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors"
-        >
-          <CheckCircle className="h-8 w-8 text-orange-600 mr-3" />
-          <div>
-            <p className="font-semibold text-gray-900">Review Timesheets</p>
-            <p className="text-sm text-gray-600">{stats.pending_timesheets} pending approval</p>
-          </div>
-        </Link>
-      </div>
-
-      {/* Legend */}
-      <div className="mb-4 flex items-center space-x-6 text-sm bg-white rounded-lg p-3 border">
-        <span className="font-medium text-gray-700">Status Legend:</span>
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 rounded-full bg-green-500"></div>
-          <span className="text-gray-600">Approved</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 rounded-full bg-blue-500"></div>
-          <span className="text-gray-600">Submitted</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
-          <span className="text-gray-600">Draft</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 rounded-full bg-gray-300"></div>
-          <span className="text-gray-600">Missing</span>
-        </div>
-      </div>
-
-      {/* Employees Grouped by Client */}
-      <div className="space-y-4">
-        {dashboardData?.clients_with_employees?.length === 0 ? (
-          <div className="bg-white rounded-xl p-12 text-center border">
-            <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No clients with employees</h3>
-            <p className="text-gray-500 mb-4">Start by adding a client and then onboarding employees.</p>
-            <Link to="/clients/onboard" className="btn btn-primary">
-              Add Your First Client
-            </Link>
-          </div>
-        ) : (
-          dashboardData?.clients_with_employees?.map((client) => (
-            <div key={client.client_id} className="bg-white rounded-xl border overflow-hidden">
-              {/* Client Header */}
-              <button
-                onClick={() => toggleClient(client.client_id)}
-                className="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center space-x-4">
-                  {expandedClients[client.client_id] ? (
-                    <ChevronDown className="h-5 w-5 text-gray-500" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5 text-gray-500" />
-                  )}
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Building2 className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-gray-900">{client.client_name}</h3>
-                      <p className="text-sm text-gray-500">{client.client_code} | {client.submission_frequency}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-500">
-                    {client.employees.length} employee{client.employees.length !== 1 ? 's' : ''}
-                  </span>
-                  {client.bill_rate && (
-                    <span className="text-sm text-green-600 font-medium">
-                      ${client.bill_rate}/hr
-                    </span>
-                  )}
-                </div>
-              </button>
-
-              {/* Employee List */}
-              {expandedClients[client.client_id] && (
-                <div className="divide-y">
-                  {client.employees.map((employee) => {
-                    const hasMissing = employee.periods.some(p => p.status === 'missing');
-                    return (
-                      <div
-                        key={employee.employee_id}
-                        className="px-6 py-4 flex items-center justify-between hover:bg-gray-50"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                            <span className="text-purple-600 font-semibold">
-                              {employee.employee_name.split(' ').map(n => n[0]).join('')}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{employee.employee_name}</p>
-                            <p className="text-sm text-gray-500 flex items-center">
-                              <Mail className="h-3 w-3 mr-1" />
-                              {employee.employee_email}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Timesheet Period Status Icons */}
-                        <div className="flex items-center space-x-6">
-                          <div className="flex items-center space-x-2">
-                            {employee.periods.map((period, idx) => (
-                              <div key={idx} className="relative group">
-                                {getStatusIcon(period.status)}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                  {format(new Date(period.period_start), 'MMM d')} - {format(new Date(period.period_end), 'MMM d')}
-                                  <br />
-                                  Status: {period.status}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Employee Info */}
-                          <div className="text-right text-sm">
-                            {employee.pay_rate && (
-                              <p className="text-gray-600">${employee.pay_rate}/hr</p>
-                            )}
-                            <p className={employee.overtime_allowed ? 'text-green-600' : 'text-gray-400'}>
-                              {employee.overtime_allowed ? 'OT Allowed' : 'No OT'}
-                            </p>
-                          </div>
-
-                          {/* Notify Button */}
-                          {hasMissing && (
-                            <button
-                              onClick={() => handleNotify(employee.employee_id, employee.employee_name)}
-                              disabled={sendingNotification[employee.employee_id]}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
-                              title="Send reminder notification"
-                            >
-                              <Bell className="h-4 w-4" />
-                              <span className="text-sm font-medium">
-                                {sendingNotification[employee.employee_id] ? 'Sending...' : 'Notify'}
-                              </span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-500">
+                {client.employees.length} employee{client.employees.length !== 1 ? 's' : ''}
+              </span>
+              {client.bill_rate && (
+                <span className="text-sm text-green-600 font-medium">
+                  ${client.bill_rate}/hr
+                </span>
               )}
             </div>
-          ))
-        )}
-      </div>
+          </button>
 
-      {/* Alert for Missing Timesheets */}
-      {stats.missing_timesheets > 0 && (
-        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start">
-          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
-          <div>
-            <h4 className="font-medium text-yellow-900">
-              {stats.missing_timesheets} Missing Timesheet{stats.missing_timesheets !== 1 ? 's' : ''}
-            </h4>
-            <p className="text-sm text-yellow-800 mt-1">
-              Some employees haven't submitted their timesheets for {months[selectedMonth - 1].label} {selectedYear}.
-              Use the Notify button to send them a reminder.
-            </p>
-          </div>
+          {/* Employee List */}
+          {expandedClients[client.client_id] && (
+            <div className="divide-y">
+              {client.employees.map((employee) => {
+                const hasMissing = employee.periods.some(p => p.status === 'missing');
+                return (
+                  <div
+                    key={employee.employee_id}
+                    className="px-6 py-4 flex items-center justify-between hover:bg-gray-50"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                        <span className="text-purple-600 font-semibold">
+                          {employee.employee_name.split(' ').map(n => n[0]).join('')}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{employee.employee_name}</p>
+                        <p className="text-sm text-gray-500 flex items-center">
+                          <Mail className="h-3 w-3 mr-1" />
+                          {employee.employee_email}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Timesheet Period Status Icons */}
+                    <div className="flex items-center space-x-6">
+                      <div className="flex items-center space-x-2">
+                        {employee.periods.map((period, idx) => (
+                          <div key={idx} className="relative group">
+                            {getStatusIcon(period.status)}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                              {format(new Date(period.period_start), 'MMM d')} - {format(new Date(period.period_end), 'MMM d')}
+                              <br />
+                              Status: {period.status}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Employee Info */}
+                      <div className="text-right text-sm">
+                        {employee.pay_rate && (
+                          <p className="text-gray-600">${employee.pay_rate}/hr</p>
+                        )}
+                        <p className={employee.overtime_allowed ? 'text-green-600' : 'text-gray-400'}>
+                          {employee.overtime_allowed ? 'OT Allowed' : 'No OT'}
+                        </p>
+                      </div>
+
+                      {/* Notify Button */}
+                      {hasMissing && (
+                        <button
+                          onClick={() => handleNotify(employee.employee_id, employee.employee_name)}
+                          disabled={sendingNotification[employee.employee_id]}
+                          className="flex items-center space-x-1 px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
+                          title="Send reminder notification"
+                        >
+                          <Bell className="h-4 w-4" />
+                          <span className="text-sm font-medium">
+                            {sendingNotification[employee.employee_id] ? 'Sending...' : 'Notify'}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      ))
+    )}
+  </div>
+
+  {/* Alert for Missing Timesheets */ }
+  {
+    stats.missing_timesheets > 0 && (
+      <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start">
+        <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+        <div>
+          <h4 className="font-medium text-yellow-900">
+            {stats.missing_timesheets} Missing Timesheet{stats.missing_timesheets !== 1 ? 's' : ''}
+          </h4>
+          <p className="text-sm text-yellow-800 mt-1">
+            Some employees haven't submitted their timesheets for {months[selectedMonth - 1].label} {selectedYear}.
+            Use the Notify button to send them a reminder.
+          </p>
+        </div>
+      </div>
+    )
+  }
+    </div >
   );
 };
 

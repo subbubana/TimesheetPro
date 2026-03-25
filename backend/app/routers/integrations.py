@@ -2,7 +2,7 @@
 API router for integration configuration (Email and Google Drive).
 Handles configuration, testing connections, OAuth flows, and managing integration settings.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -455,6 +455,60 @@ def test_integration(
             "message": f"Error testing connection: {str(e)}",
             "type": integration_type.value
         }
+
+
+@router.post("/sync/run")
+def run_full_sync_job(
+    background_tasks: BackgroundTasks,
+    current_user: Employee = Depends(require_role("admin")),
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger a full sync cycle:
+    1. Fetch from Email
+    2. Fetch from Drive
+    3. Run Agent Processing
+    """
+    from app.services.email_service import EmailMonitoringService
+    from app.services.drive_service import DriveMonitoringService
+    from app.services.timesheet_processor import process_pending_uploads
+
+    # We run this in background to avoid timeout, but the user wants immediate feedback?
+    # The fetching part is usually fast enough (if incremental). 
+    # The processing might be slow.
+    # We'll run fetching synchronously to report "Found X files", then trigger processing in BG.
+    
+    email_count = 0
+    drive_count = 0
+    
+    # 1. Email
+    try:
+        email_config = db.query(IntegrationConfig).filter(IntegrationConfig.type == IntegrationType.EMAIL).first()
+        if email_config and email_config.is_active:
+            svc = EmailMonitoringService(db)
+            res = svc.monitor_inbox()
+            email_count = res.get("processed_attachments", 0)
+    except Exception as e:
+        print(f"Manual Sync Email Error: {e}")
+
+    # 2. Drive
+    try:
+        drive_config = db.query(IntegrationConfig).filter(IntegrationConfig.type == IntegrationType.DRIVE).first()
+        if drive_config and drive_config.is_active:
+            svc = DriveMonitoringService(db)
+            res = svc.monitor_folder()
+            drive_count = res.get("processed_files", 0)
+    except Exception as e:
+        print(f"Manual Sync Drive Error: {e}")
+
+    # 3. Trigger Agent
+    background_tasks.add_task(process_pending_uploads)
+    
+    return {
+        "success": True,
+        "message": f"Sync started. Fetched {email_count} emails and {drive_count} drive files. Agent is processing in background.",
+        "fetched_count": email_count + drive_count
+    }
 
 
 @router.post("/{integration_type}/sync")
